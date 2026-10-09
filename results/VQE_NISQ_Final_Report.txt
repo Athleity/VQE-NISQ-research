@@ -1,0 +1,140 @@
+VQE on NISQ Devices
+A Comparative Study of the H2 Molecule and the Ising Model
+
+Author: Athleity
+Date: 2025
+
+
+ABSTRACT
+
+- This report presents a complete implementation of the Variational Quantum Eigensolver (VQE) applied to two quantum systems of comparable size.
+- The hydrogen molecule represents the quantum chemistry case, while the transverse field Ising model represents the condensed matter case.
+- The work proceeds in three stages: ideal noiseless simulation, noisy simulation with depolarizing errors, and error mitigation.
+- Ideal runs establish the best accuracy that VQE can reach with the chosen hardware-efficient ansatz, giving a lower bound on algorithmic error.
+- Noisy runs quantify how much realistic hardware errors degrade the accuracy of the computed ground-state energy on both systems.
+- Zero-Noise Extrapolation recovers most of the lost accuracy, while Measurement Error Mitigation proved ineffective in the form used here.
+
+
+1. INTRODUCTION
+
+- Quantum computers promise to simulate quantum physical systems with an efficiency that scales far better than classical simulation methods.
+- Current devices operate in the NISQ era, characterized by limited qubit counts, short coherence times, and high gate and readout error rates.
+- VQE was designed specifically for this restricted regime by combining a shallow parameterized circuit with a classical optimization loop.
+- The circuit, called the ansatz, is prepared on the quantum processor, and the expectation value of the target Hamiltonian is measured repeatedly.
+- A classical optimizer then adjusts the parameters and the loop repeats until the energy converges to a minimum.
+- The variational principle guarantees that the computed energy is always an upper bound on the true ground-state energy of the system.
+- The central question of this project is whether VQE can deliver useful accuracy on realistic noisy hardware, and whether error mitigation can close the remaining gap to chemical accuracy.
+
+
+2. SYSTEMS AND HAMILTONIANS
+
+- The hydrogen molecule was modeled at its equilibrium bond length of 0.735 Angstroms, where the two nuclei are energetically most stable.
+- Its Hamiltonian was reduced to four qubits with seventeen Pauli terms containing both Z-type and X/Y correlation contributions.
+- Classical exact diagonalization gives the H2 ground-state energy as -2.083700 Hartree, which serves as the reference for all error calculations.
+- The transverse field Ising model was configured with four qubits on a periodic ring, coupling strength J = 1.0, and transverse field h = 0.5.
+- Its Hamiltonian contains only eight Pauli terms, making it structurally simpler than H2 and useful as a control for comparison.
+- Classical diagonalization gives the Ising ground-state energy as -4.271558, which is the reference value for all reported errors.
+
+
+3. METHODOLOGY
+
+- A hardware-efficient ansatz was used with two layers of RY rotations and a ring of CNOT entanglers, giving eight trainable parameters per system.
+- The COBYLA optimizer drove the classical parameter updates, running up to one hundred iterations for ideal runs and eighty for noisy runs.
+- Initial parameters were drawn uniformly from the interval [0, pi/4] to provide a reasonable starting point for optimization.
+- Ideal runs used exact statevector evaluation, eliminating shot noise and giving the true VQE accuracy for the chosen ansatz.
+- Noisy runs used the Aer simulator with a depolarizing noise model, with one percent error on single-qubit gates and two percent on two-qubit gates.
+- Each Pauli term was measured with 4096 shots to reduce statistical sampling noise to an acceptable level.
+- Zero-Noise Extrapolation ran the circuit at four noise levels and fitted a line to extrapolate the energy back to zero noise.
+- Measurement Error Mitigation calibrated readout errors and applied a simple correction to the measured expectation values.
+
+
+4. IDEAL SIMULATION RESULTS
+
+- VQE converged to -2.083259 Hartree for H2, giving an absolute error of 0.00044 Hartree or about 0.021 percent relative error.
+- This is well below the chemical accuracy threshold of roughly one kilocalorie per mole, indicating that the ansatz is expressive enough for H2.
+- VQE converged to -4.241723 for the Ising model, an absolute error of 0.0298 and a relative error of about 0.70 percent.
+- The Ising result is slightly less precise than H2 because the ansatz was not tailored to exploit the model's translational symmetry.
+- Both systems converged smoothly within the hundred-iteration budget, with H2 completing in 0.51 seconds and Ising in 0.42 seconds.
+
+
+5. NOISY SIMULATION RESULTS
+
+- The noisy VQE energy for H2 rose to -1.813098 Hartree, giving an absolute error of 0.271 and a relative error of about 12.99 percent.
+- This is roughly 613 times worse than the ideal simulation, showing how severely even modest gate errors can degrade VQE accuracy.
+- The noisy VQE energy for Ising rose to -3.853027, giving an absolute error of 0.419 and a relative error of about 9.80 percent.
+- This is roughly 14 times worse than the ideal case, much less degraded than H2 despite using the same physical noise model.
+- The reason for the disparity is that H2 has seventeen Pauli terms compared to eight for Ising, requiring many more basis rotations per run.
+- Each extra rotation adds single-qubit gates to the circuit, so H2 accumulates roughly 44 times more error growth than Ising.
+- Runtime also grew substantially, with noisy H2 taking about 102 seconds and noisy Ising about 41 seconds due to per-term measurement overhead.
+
+
+6. ERROR MITIGATION RESULTS
+
+- Zero-Noise Extrapolation reduced the H2 energy error from 0.271 to 0.064, a 4.25-fold improvement, bringing the relative error down to 3.06 percent.
+- Zero-Noise Extrapolation reduced the Ising energy error from 0.419 to 0.142, a 2.95-fold improvement, bringing the relative error down to 3.32 percent.
+- Both ZNE results still exceeded the chemical accuracy threshold, but came much closer to the exact value than the raw noisy runs.
+- Measurement Error Mitigation changed the H2 energy only to -1.812420, essentially identical to the raw noisy value and offering no benefit.
+- Measurement Error Mitigation produced -3.834734 for the Ising model, which is marginally worse than the raw noisy energy of -3.853027.
+- The reason MEM failed is that the implementation used a single scalar correction factor rather than inverting the full calibration matrix.
+- A rigorous matrix-inversion approach would likely recover much of the potential effectiveness of measurement error mitigation.
+
+
+7. DISCUSSION
+
+- VQE works well in the ideal case, achieving chemical accuracy for H2 and smooth convergence for Ising within a modest iteration budget.
+- Noise is the dominant obstacle, with one percent gate errors causing more than ten percent energy error, far above practical chemistry tolerances.
+- System-specific sensitivity matters, since H2 degrades roughly forty-four times more than Ising under the same physical noise.
+- Error mitigation helps but does not fully solve the problem, since ZNE reduces error by three to four times but falls short of chemical accuracy.
+
+
+8. CONCLUSIONS
+
+- VQE is a viable approach for finding ground-state energies of small quantum systems in ideal simulation.
+- Realistic hardware noise severely degrades accuracy on both systems, limiting practical usefulness without mitigation.
+- Zero-Noise Extrapolation recovers about 75 percent of the accuracy lost to noise and is a practical technique for near-term devices.
+- Measurement Error Mitigation was ineffective in the simple form used here, and needs a more rigorous implementation to provide benefit.
+- Combining mitigation with circuit optimization or better ansatz design would likely close the remaining gap to chemical accuracy.
+
+
+9. LIMITATIONS
+
+- Only four-qubit systems were studied, which limits generalizability to larger molecules or longer spin chains.
+- The noise model is depolarizing and therefore somewhat idealized, omitting leakage, crosstalk, and coherent error channels.
+- The Measurement Error Mitigation step was deliberately kept simple, using a scalar correction instead of a full calibration matrix.
+- No statistical error bars are reported, since ideal runs use exact statevector evaluation and noisy runs use a fixed random seed by convention.
+- The ansatz was hardware-efficient but not tailored to either system, which may have limited the achievable accuracy.
+
+
+10. FUTURE WORK
+
+- Test the same circuits on real IBM Quantum hardware to obtain a more realistic noise profile than the depolarizing model used here.
+- Scale up to larger molecules such as LiH and H2O to see whether the observed trends continue as system size grows.
+- Explore adaptive ansatze like ADAPT-VQE, which builds the circuit iteratively and may reduce depth for a given accuracy.
+- Improve Measurement Error Mitigation by inverting the full calibration matrix, which should recover much of its potential effectiveness.
+- Compare VQE against other NISQ algorithms such as QAOA and SSVQE on the same systems to identify the best algorithm per problem class.
+
+
+11. TECHNICAL DETAILS
+
+- Qiskit 2.5.2 was used for circuit construction and quantum primitives.
+- Qiskit Aer 0.17.2 provided the noisy simulation backend.
+- Qiskit IBM Runtime 0.49.0 was installed for access to IBM hardware.
+- NumPy 2.1.3 handled all numerical array computations.
+- SciPy 1.16.3 provided the classical optimization routines.
+- Matplotlib 3.10.0 was used to generate all plots and figures.
+- All experiments were run inside Google Colab notebooks.
+- Ideal runs used the Statevector class from Qiskit's quantum_info module.
+- Noisy runs used AerSimulator with a custom depolarizing noise model.
+- No real quantum hardware was used in this project.
+
+
+12. REFERENCES
+
+- Peruzzo et al., Nature Communications 5, 4213 (2014).
+- Kandala et al., Nature 549, 242 (2017).
+- Temme et al., Physical Review Letters 119, 180509 (2017).
+- Qiskit Development Team, https://qiskit.org
+
+
+Report generated for the VQE NISQ Research project.
+Repository: https://github.com/Athleity/VQE-NISQ-research
